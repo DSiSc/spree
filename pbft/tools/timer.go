@@ -17,6 +17,12 @@ type Timer interface {
 	Halt()                                         // Stops the Timer thread
 }
 
+// TimerFactory abstracts the creation of Timers, as they may
+// need to be mocked for testing
+type TimerFactory interface {
+	CreateTimer() Timer // Creates an Timer which is stopped
+}
+
 // timerStart is used to deliver the start request to the eventTimer thread
 type timerStart struct {
 	hard     bool          // Whether to reset the timer if it is running
@@ -31,16 +37,6 @@ type timerImpl struct {
 	startChan chan *timerStart // Channel to deliver the timer start events to the service go routine
 	stopChan  chan struct{}    // Channel to deliver the timer stop events to the service go routine
 	manager   Manager          // The event manager to deliver the event to after timer expiration
-}
-
-// halt tells the threaded object's thread to exit
-func (t *threaded) Halt() {
-	select {
-	case <-t.exit:
-		log.Info("Attempted to halt a threaded object twice")
-	default:
-		close(t.exit)
-	}
 }
 
 // newTimer creates a new instance of timerImpl
@@ -77,6 +73,15 @@ func (et *timerImpl) Reset(timeout time.Duration, event Event) {
 // stop tells the timer to stop, and not to deliver any pending events
 func (et *timerImpl) Stop() {
 	et.stopChan <- struct{}{}
+}
+
+func (et *timerImpl) Halt() {
+	select {
+	case <-et.threaded.exit:
+		log.Warn("Attempted to halt a threaded object twice")
+	default:
+		close(et.threaded.exit)
+	}
 }
 
 // loop is where the timer thread lives, looping

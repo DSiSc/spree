@@ -77,6 +77,15 @@ func (em *managerImpl) Inject(event Event) {
 	}
 }
 
+func (em *managerImpl) Halt() {
+	select {
+	case <-em.threaded.exit:
+		log.Warn("Attempted to halt a threaded object twice")
+	default:
+		close(em.threaded.exit)
+	}
+}
+
 // eventLoop is where the event thread loops, delivering events
 func (em *managerImpl) eventLoop() {
 	for {
