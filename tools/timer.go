@@ -1,16 +1,9 @@
 package tools
 
 import (
-	"fmt"
 	"github.com/DSiSc/craft/log"
 	"time"
 )
-
-// ------------------------------------------------------------
-//
-// Event Timer
-//
-// ------------------------------------------------------------
 
 // Timer is an interface for managing time driven events
 // the special contract Timer gives which a traditional golang
@@ -44,7 +37,7 @@ type timerImpl struct {
 func (t *threaded) Halt() {
 	select {
 	case <-t.exit:
-		log.Info(fmt.Sprintf("Attempted to halt a threaded object twice"))
+		log.Info("Attempted to halt a threaded object twice")
 	default:
 		close(t.exit)
 	}
