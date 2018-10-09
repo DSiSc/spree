@@ -1,19 +1,18 @@
-package tools
+package pbft
 
 import (
 	"encoding/base64"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/crypto-suite/crypto/sha3"
-	"github.com/DSiSc/spree/pbft/common"
 	"github.com/golang/protobuf/proto"
 )
 
 func Hash(msg interface{}) string {
 	var raw []byte
 	switch converted := msg.(type) {
-	case *common.Request:
+	case *Request:
 		raw, _ = proto.Marshal(converted)
-	case *common.RequestBatch:
+	case *RequestBatch:
 		raw, _ = proto.Marshal(converted)
 	default:
 		log.Error("Asked to hash non-supported message type, ignoring")

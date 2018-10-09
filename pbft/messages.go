@@ -1,4 +1,4 @@
-package common
+package pbft
 
 import (
 	"github.com/golang/protobuf/proto"
@@ -151,7 +151,7 @@ func (vc *ViewChange) Reset()         { *vc = ViewChange{} }
 func (vc *ViewChange) String() string { return proto.CompactTextString(vc) }
 func (*ViewChange) ProtoMessage()     {}
 
-func (vc *ViewChange) getSignature() []byte {
+func (vc ViewChange) getSignature() []byte {
 	return vc.Signature
 }
 
@@ -191,6 +191,12 @@ type PQset struct {
 func (m *PQset) Reset()         { *m = PQset{} }
 func (m *PQset) String() string { return proto.CompactTextString(m) }
 func (*PQset) ProtoMessage()    {}
+func (m *PQset) GetSet() []*ViewChange_PQ {
+	if m != nil {
+		return m.Set
+	}
+	return nil
+}
 
 type FetchRequestBatch struct {
 	BatchDigest string `protobuf:"bytes,1,opt,name=batch_digest,json=batchDigest" json:"batch_digest,omitempty"`

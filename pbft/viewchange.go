@@ -2,10 +2,9 @@ package pbft
 
 import (
 	logger "github.com/DSiSc/craft/log"
-	"github.com/DSiSc/spree/pbft/common"
 )
 
-func (instance *pbftCore) correctViewChange(vc *common.ViewChange) bool {
+func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
 			logger.Debug("Replica %d invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
@@ -26,7 +25,7 @@ func (instance *pbftCore) correctViewChange(vc *common.ViewChange) bool {
 	return true
 }
 
-func (instance *pbftCore) assignSequenceNumbers(vset []*common.ViewChange, h uint64) (msgList map[uint64]string) {
+func (instance *pbftCore) assignSequenceNumbers(vset []*ViewChange, h uint64) (msgList map[uint64]string) {
 	msgList = make(map[uint64]string)
 
 	maxN := h + 1
