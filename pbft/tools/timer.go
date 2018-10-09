@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"github.com/DSiSc/craft/log"
+	logger "github.com/DSiSc/craft/log"
 	"time"
 )
 
@@ -40,7 +40,7 @@ type timerImpl struct {
 }
 
 // newTimer creates a new instance of timerImpl
-func newTimerImpl(manager Manager) Timer {
+func NewTimerImpl(manager Manager) Timer {
 	et := &timerImpl{
 		startChan: make(chan *timerStart),
 		stopChan:  make(chan struct{}),
@@ -49,6 +49,55 @@ func newTimerImpl(manager Manager) Timer {
 	}
 	go et.loop()
 	return et
+}
+
+// loop is where the timer thread lives, looping
+func (et *timerImpl) loop() {
+	var eventDestChan chan<- Event
+	var event Event
+
+	for {
+		// A little state machine, relying on the fact that nil channels will block on read/write indefinitely
+
+		select {
+		case start := <-et.startChan:
+			if et.timerChan != nil {
+				if start.hard {
+					logger.Debug("Resetting a running timer")
+				} else {
+					continue
+				}
+			}
+			logger.Debug("Starting timer")
+			et.timerChan = time.After(start.duration)
+			if eventDestChan != nil {
+				logger.Debug("Timer cleared pending event")
+			}
+			event = start.event
+			eventDestChan = nil
+		case <-et.stopChan:
+			if et.timerChan == nil && eventDestChan == nil {
+				logger.Debug("Attempting to stop an unfired idle timer")
+			}
+			et.timerChan = nil
+			logger.Debug("Stopping timer")
+			if eventDestChan != nil {
+				logger.Debug("Timer cleared pending event")
+			}
+			eventDestChan = nil
+			event = nil
+		case <-et.timerChan:
+			logger.Debug("Event timer fired")
+			et.timerChan = nil
+			eventDestChan = et.manager.Queue()
+		case eventDestChan <- event:
+			logger.Debug("Timer event delivered")
+			eventDestChan = nil
+		case <-et.exit:
+			logger.Debug("Halting timer")
+			return
+		}
+	}
 }
 
 // softReset tells the timer to start a new countdown, only if it is not currently counting down
@@ -78,13 +127,8 @@ func (et *timerImpl) Stop() {
 func (et *timerImpl) Halt() {
 	select {
 	case <-et.threaded.exit:
-		log.Warn("Attempted to halt a threaded object twice")
+		logger.Warn("Attempted to halt a threaded object twice")
 	default:
 		close(et.threaded.exit)
 	}
-}
-
-// loop is where the timer thread lives, looping
-func (et *timerImpl) loop() {
-
 }

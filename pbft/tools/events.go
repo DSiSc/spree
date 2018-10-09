@@ -43,19 +43,11 @@ func NewManagerImpl() Manager {
 	}
 }
 
-// SetReceiver sets the destination for events
-func (em *managerImpl) SetReceiver(receiver Receiver) {
-	em.receiver = receiver
-}
-
-// Start creates the go routine necessary to deliver events
-func (em *managerImpl) Start() {
-	go em.eventLoop()
-}
-
-// queue returns a write only reference to the event queue
-func (em *managerImpl) Queue() chan<- Event {
-	return em.events
+// Inject can only safely be called by the managerImpl thread itself, it skips the queue
+func (em *managerImpl) Inject(event Event) {
+	if em.receiver != nil {
+		SendEvent(em.receiver, event)
+	}
 }
 
 // SendEvent performs the event loop on a receiver to completion
@@ -70,11 +62,19 @@ func SendEvent(receiver Receiver, event Event) {
 	}
 }
 
-// Inject can only safely be called by the managerImpl thread itself, it skips the queue
-func (em *managerImpl) Inject(event Event) {
-	if em.receiver != nil {
-		SendEvent(em.receiver, event)
-	}
+// queue returns a write only reference to the event queue
+func (em *managerImpl) Queue() chan<- Event {
+	return em.events
+}
+
+// SetReceiver sets the destination for events
+func (em *managerImpl) SetReceiver(receiver Receiver) {
+	em.receiver = receiver
+}
+
+// Start creates the go routine necessary to deliver events
+func (em *managerImpl) Start() {
+	go em.eventLoop()
 }
 
 func (em *managerImpl) Halt() {

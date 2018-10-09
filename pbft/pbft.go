@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/spree/consensus"
 	"github.com/DSiSc/spree/pbft/common"
 	"github.com/DSiSc/spree/pbft/tools"
 	"github.com/golang/protobuf/proto"
@@ -391,4 +392,9 @@ func (instance *pbftCore) recvRequestBatch(reqBatch *common.RequestBatch) error 
 		log.Debug("Replica %d is backup, not sending pre-prepare for request batch %s", instance.id, digest)
 	}
 	return nil
+}
+
+type obcGeneric struct {
+	stack consensus.Stack
+	pbft  *pbftCore
 }
