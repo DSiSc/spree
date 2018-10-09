@@ -35,6 +35,13 @@ type Message_PrePrepare struct {
 	PrePrepare *PrePrepare `protobuf:"bytes,2,opt,name=pre_prepare,json=prePrepare,oneof"`
 }
 
+func (m *PrePrepare) GetRequestBatch() *RequestBatch {
+	if m != nil {
+		return m.RequestBatch
+	}
+	return nil
+}
+
 type Message_Prepare struct {
 	Prepare *Prepare `protobuf:"bytes,3,opt,name=prepare,oneof"`
 }

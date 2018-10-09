@@ -47,6 +47,18 @@ func (instance *pbftCore) ProcessEvent(e tools.Event) tools.Event {
 	switch et := e.(type) {
 	case *common.RequestBatch:
 		err = instance.recvRequestBatch(et)
+	case *common.PrePrepare:
+		err = instance.recvPrePrepare(et)
+	case *common.Prepare:
+		err = instance.recvPrepare(et)
+	case *common.Commit:
+		err = instance.recvCommit(et)
+	case *common.Checkpoint:
+		return instance.recvCheckpoint(et)
+	case *common.ViewChange:
+		return instance.recvViewChange(et)
+	case *common.NewView:
+		return instance.recvNewView(et)
 	default:
 		logger.Warn("Replica %d received an unknown message type %T", instance.id, et)
 	}
@@ -96,6 +108,82 @@ func (instance *pbftCore) persistRequestBatch(digest string) {
 	}
 }
 
+// Receive pre-prepare message
+func (instance *pbftCore) recvPrePrepare(preprep *common.PrePrepare) error {
+	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
+		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
+
+	if !instance.activeView {
+		logger.Debug("Replica %d ignoring pre-prepare as we are in a view change", instance.id)
+		return nil
+	}
+
+	if instance.primary(instance.view) != preprep.ReplicaId {
+		logger.Warn("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.primary(instance.view))
+		return nil
+	}
+
+	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
+		if preprep.SequenceNumber != instance.h && !instance.skipInProgress {
+			logger.Warn("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+		} else {
+			// This is perfectly normal
+			logger.Debug("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+		}
+
+		return nil
+	}
+
+	if preprep.SequenceNumber > instance.viewChangeSeqNo {
+		logger.Info("Replica %d received pre-prepare for %d, which should be from the next primary", instance.id, preprep.SequenceNumber)
+		instance.sendViewChange()
+		return nil
+	}
+
+	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
+	if cert.digest != "" && cert.digest != preprep.BatchDigest {
+		logger.Warn("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.BatchDigest, cert.digest)
+		instance.sendViewChange()
+		return nil
+	}
+
+	cert.prePrepare = preprep
+	cert.digest = preprep.BatchDigest
+
+	// Store the request batch if, for whatever reason, we haven't received it from an earlier broadcast
+	if _, ok := instance.reqBatchStore[preprep.BatchDigest]; !ok && preprep.BatchDigest != "" {
+		digest := tools.Hash(preprep.GetRequestBatch())
+		if digest != preprep.BatchDigest {
+			logger.Warn("Pre-prepare and request digest do not match: request %s, digest %s", digest, preprep.BatchDigest)
+			return nil
+		}
+		instance.reqBatchStore[digest] = preprep.GetRequestBatch()
+		logger.Debug("Replica %d storing request batch %s in outstanding request batch store", instance.id, digest)
+		instance.outstandingReqBatches[digest] = preprep.GetRequestBatch()
+		instance.persistRequestBatch(digest)
+	}
+
+	instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for request batch %s", preprep.BatchDigest))
+	instance.nullRequestTimer.Stop()
+
+	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.BatchDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
+		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d", instance.id, preprep.View, preprep.SequenceNumber)
+		prep := &common.Prepare{
+			View:           preprep.View,
+			SequenceNumber: preprep.SequenceNumber,
+			BatchDigest:    preprep.BatchDigest,
+			ReplicaId:      instance.id,
+		}
+		cert.sentPrepare = true
+		instance.persistQSet()
+		instance.recvPrepare(prep)
+		return instance.innerBroadcast(&common.Message{Payload: &common.Message_Prepare{Prepare: prep}})
+	}
+
+	return nil
+}
+
+// Receive prepare message
 func (instance *pbftCore) recvPrepare(prep *common.Prepare) error {
 	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View, prep.SequenceNumber)
@@ -129,6 +217,7 @@ func (instance *pbftCore) recvPrepare(prep *common.Prepare) error {
 	return instance.maybeSendCommit(prep.BatchDigest, prep.View, prep.SequenceNumber)
 }
 
+// Receive commit message
 func (instance *pbftCore) recvCommit(commit *common.Commit) error {
 	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View, commit.SequenceNumber)
@@ -170,6 +259,7 @@ func (instance *pbftCore) recvCommit(commit *common.Commit) error {
 	return nil
 }
 
+// Receive ViewChange message
 func (instance *pbftCore) recvViewChange(vc *common.ViewChange) tools.Event {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
@@ -239,6 +329,28 @@ func (instance *pbftCore) recvViewChange(vc *common.ViewChange) tools.Event {
 	}
 
 	return nil
+}
+
+// Receive NewView message
+func (instance *pbftCore) recvNewView(nv *common.NewView) tools.Event {
+	logger.Info("Replica %d received new-view %d",
+		instance.id, nv.View)
+
+	if !(nv.View > 0 && nv.View >= instance.view && instance.primary(nv.View) == nv.ReplicaId && instance.newViewStore[nv.View] == nil) {
+		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
+			instance.id, nv.ReplicaId, nv.View)
+		return nil
+	}
+
+	for _, vc := range nv.Vset {
+		if err := instance.verify(vc); err != nil {
+			logger.Warn("Replica %d found incorrect view-change signature in new-view message: %s", instance.id, err)
+			return nil
+		}
+	}
+
+	instance.newViewStore[nv.View] = nv
+	return instance.processNewView()
 }
 
 // Execute batch requests
