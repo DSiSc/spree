@@ -98,3 +98,30 @@ func (em *managerImpl) eventLoop() {
 		}
 	}
 }
+
+// TimerFactoryImpl implements the TimerFactory
+type timerFactoryImpl struct {
+	manager Manager // The Manager to use in constructing the event timers
+}
+
+// NewTimerFactoryImpl creates a new TimerFactory for the given Manager
+func NewTimerFactoryImpl(manager Manager) TimerFactory {
+	return &timerFactoryImpl{manager: manager}
+}
+
+// CreateTimer creates a new timer which deliver events to the Manager for this factory
+func (etf *timerFactoryImpl) CreateTimer() Timer {
+	return newTimerImpl(etf.manager)
+}
+
+// newTimer creates a new instance of timerImpl
+func newTimerImpl(manager Manager) Timer {
+	et := &timerImpl{
+		startChan: make(chan *timerStart),
+		stopChan:  make(chan struct{}),
+		threaded:  threaded{make(chan struct{})},
+		manager:   manager,
+	}
+	go et.loop()
+	return et
+}
