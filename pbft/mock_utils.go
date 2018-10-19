@@ -20,9 +20,9 @@ func (it *inertTimer) Reset(duration time.Duration, event events.Event)     {}
 func (it *inertTimer) SoftReset(duration time.Duration, event events.Event) {}
 func (it *inertTimer) Stop()                                                {}
 
-type inertTimerFactory struct{}
+type InertTimerFactory struct{}
 
-func (it *inertTimerFactory) CreateTimer() events.Timer {
+func (it *InertTimerFactory) CreateTimer() events.Timer {
 	return &inertTimer{}
 }
 
@@ -80,7 +80,7 @@ func (p *mockPersist) DelState(key string) {
 
 func createRunningPbftWithManager(id uint64, config *viper.Viper, stack innerStack) (*pbftCore, events.Manager) {
 	manager := events.NewManagerImpl()
-	core := newPbftCore(id, loadConfig(), stack, events.NewTimerFactoryImpl(manager))
+	core := NewPbftCore(id, LoadConfig(), stack, events.NewTimerFactoryImpl(manager))
 	manager.SetReceiver(core)
 	manager.Start()
 	return core, manager
@@ -121,14 +121,14 @@ func createPbftReq(tag int64, replica uint64) (req *Request) {
 	return
 }
 
-func createPbftReqBatch(tag int64, replica uint64) (reqBatch *RequestBatch) {
+func CreatePbftReqBatch(tag int64, replica uint64) (reqBatch *RequestBatch) {
 	req := createPbftReq(tag, replica)
 	reqBatch = &RequestBatch{Batch: []*Request{req}}
 	return
 }
 
-func createPbftReqBatchMsg(tag int64, replica uint64) (msg *Message) {
-	reqBatch := createPbftReqBatch(tag, replica)
+func CreatePbftReqBatchMsg(tag int64, replica uint64) (msg *Message) {
+	reqBatch := CreatePbftReqBatch(tag, replica)
 	msg = &Message{Payload: &Message_RequestBatch{RequestBatch: reqBatch}}
 	return
 }

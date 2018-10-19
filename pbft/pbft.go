@@ -7,8 +7,8 @@ import (
 	"github.com/DSiSc/spree/consensus"
 	"github.com/DSiSc/spree/pbft/tools"
 	"github.com/gogo/protobuf/proto"
-	google_protobuf "github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,6 +108,7 @@ type stateUpdateTarget struct {
 // not rely on PBFT accomplishing any work while that thread is being held
 type innerStack interface {
 	broadcast(msgPayload []byte)
+
 	unicast(msgPayload []byte, receiverID uint64) (err error)
 	execute(seqNo uint64, reqBatch *RequestBatch) // This is invoked on a separate thread
 	getState() []byte
@@ -118,16 +119,117 @@ type innerStack interface {
 	verify(senderID uint64, signature []byte, message []byte) error
 
 	invalidateState()
-	validateState()
+	//validateState()
 
 	consensus.StatePersistor
+}
+
+type PeerMap map[uint64]string
+
+var GlobalNodeMap = PeerMap{
+	uint64(0): "127.0.0.1:8080",
+	uint64(1): "127.0.0.1:8081",
+	uint64(2): "127.0.0.1:8082",
+	uint64(3): "127.0.0.1:8083",
+}
+
+type NodeInfo struct {
+	//标示
+	Id uint64
+	// 监听消息
+	Listen *net.TCPListener
+	// 发送消息
+	Sender *net.TCPAddr
+	// 监听端口
+	Url string
+	// pbft process
+	Core *pbftCore
+	// peer info
+	Peers PeerMap
+}
+
+func NewNode(id uint64, url string) *NodeInfo {
+	return &NodeInfo{
+		Id:    id,
+		Url:   url,
+		Peers: GlobalNodeMap,
+	}
+}
+
+func (n *NodeInfo) broadcast(msgPayload []byte) {
+	peers := n.Peers
+	for id, url := range peers {
+		fmt.Printf(">>>>>>>>>>>>>>> sending >>>>>>>>>>>>>>>\n")
+		fmt.Printf("Broadcast to node %d with url %s.\n", id, url)
+		tcpAddr, err := net.ResolveTCPAddr("tcp4", url)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
+			os.Exit(1)
+		}
+		conn, err := net.DialTCP("tcp", nil, tcpAddr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
+			os.Exit(1)
+		}
+		fmt.Printf("connect success and  send to url %s and payload %x.\n", url, msgPayload)
+		conn.Write(msgPayload)
+		fmt.Printf("send to url %s over.\n", url)
+	}
+}
+
+func (n *NodeInfo) getLastSeqNo() (uint64, error) {
+	return 0, nil
+}
+
+func (n *NodeInfo) execute(seqNo uint64, reqBatch *RequestBatch) {
+	return
+}
+
+func (n *NodeInfo) getState() []byte {
+	return nil
+}
+
+func (n *NodeInfo) invalidateState() {
+	return
+}
+
+func (n *NodeInfo) skipTo(seqNo uint64, snapshotID []byte, peers []uint64) {
+	return
+}
+
+func (n *NodeInfo) unicast(msgPayload []byte, receiverID uint64) (err error) {
+	return nil
+}
+
+func (n *NodeInfo) verify(senderID uint64, signature []byte, message []byte) error {
+	return nil
+}
+
+func (n *NodeInfo) sign(msg []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (n *NodeInfo) StoreState(key string, value []byte) error {
+	return nil
+}
+
+func (n *NodeInfo) ReadState(key string) ([]byte, error) {
+	return nil, nil
+}
+
+func (n *NodeInfo) ReadStateSet(prefix string) (map[string][]byte, error) {
+	return nil, nil
+}
+
+func (n *NodeInfo) DelState(key string) {
+	return
 }
 
 // =============================================================================
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf tools.TimerFactory) *pbftCore {
+func NewPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf tools.TimerFactory) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -254,7 +356,7 @@ func (instance *pbftCore) restoreState() {
 	if err == nil {
 		for k, v := range reqBatchesPacked {
 			reqBatch := &RequestBatch{}
-			err = google_protobuf.Unmarshal(v, reqBatch)
+			err = proto.Unmarshal(v, reqBatch)
 			if err != nil {
 				logger.Warn("Replica %d could not restore request batch %s", instance.id, k)
 			} else {
@@ -316,7 +418,7 @@ func (instance *pbftCore) restoreLastSeqNo() {
 	logger.Info("Replica %d restored lastExec: %d", instance.id, instance.lastExec)
 }
 
-func loadConfig() (config *viper.Viper) {
+func LoadConfig() (config *viper.Viper) {
 	config = viper.New()
 
 	// for environment variables
