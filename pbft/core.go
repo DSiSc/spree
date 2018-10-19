@@ -45,12 +45,16 @@ func (instance *pbftCore) ProcessEvent(e tools.Event) tools.Event {
 	logger.Debug("Replica %d processing event", instance.id)
 	switch et := e.(type) {
 	case *RequestBatch:
+		fmt.Println("******* 1 ********")
 		err = instance.recvRequestBatch(et)
 	case *PrePrepare:
+		fmt.Println("******* 2 ********")
 		err = instance.recvPrePrepare(et)
 	case *Prepare:
+		fmt.Println("******* 3 ********")
 		err = instance.recvPrepare(et)
 	case *Commit:
+		fmt.Println("******* 4 ********")
 		err = instance.recvCommit(et)
 	case *Checkpoint:
 		return instance.recvCheckpoint(et)

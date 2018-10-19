@@ -17,11 +17,22 @@ func main() {
 	nodeInfo.Core = pbft.NewPbftCore(nodeInfo.Id, pbft.LoadConfig(), nodeInfo, &pbft.InertTimerFactory{})
 	go pbft.Server(nodeInfo.Core)
 	primary := int64(0)
-	if uint64(primary) == *nodeId {
-		reqBatch := pbft.CreatePbftReqBatch(primary, 0)
-		req := reqBatch.Batch[0]
-		fmt.Printf("I will send:\n ReplicaId: %v.\n Payload: %v.\n Signature: %v.\n Timestamp: %v.\n", req.ReplicaId, req.Payload, req.Signature, req.Timestamp)
-		tools.SendEvent(nodeInfo.Core, reqBatch)
+	index := uint64(0)
+	for {
+		if index == 2 {
+			break
+		}
+		if uint64(primary) == *nodeId {
+			reqBatch := pbft.CreatePbftReqBatch(primary, 0)
+			req := reqBatch.Batch[0]
+			fmt.Printf("I will send:\n ReplicaId: %v.\n Payload: %v.\n Signature: %v.\n Timestamp: %v.\n", req.ReplicaId, req.Payload, req.Signature, req.Timestamp)
+			tools.SendEvent(nodeInfo.Core, reqBatch)
+			fmt.Printf("+++++++++++++++++++++++++++\n")
+		}
+		time.Sleep(20 * time.Second)
+		index += 1
+		fmt.Printf("+++++++++++++%d+++++++++++++\n", index)
 	}
+
 	time.Sleep(1000000 * time.Second)
 }

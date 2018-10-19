@@ -1,6 +1,9 @@
 package tools
 
-import "github.com/DSiSc/craft/log"
+import (
+	"fmt"
+	"github.com/DSiSc/craft/log"
+)
 
 // threaded holds an exit channel to allow threads to break from a select
 type threaded struct {
@@ -57,6 +60,7 @@ func SendEvent(receiver Receiver, event Event) {
 		// If an event returns something non-nil, then process it as a new event
 		next = receiver.ProcessEvent(next)
 		if next == nil {
+			fmt.Println("Ending.")
 			break
 		}
 	}
