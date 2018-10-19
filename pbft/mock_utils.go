@@ -2,6 +2,7 @@ package pbft
 
 import (
 	"fmt"
+	typesc "github.com/DSiSc/craft/types"
 	events "github.com/DSiSc/spree/pbft/tools"
 	"github.com/DSiSc/spree/pbft/types"
 	"github.com/golang/protobuf/proto"
@@ -9,6 +10,7 @@ import (
 	"math/rand"
 	"time"
 	//"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"encoding/json"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 )
@@ -118,6 +120,29 @@ func createPbftReq(tag int64, replica uint64) (req *Request) {
 		ReplicaId: replica,
 		Payload:   txPacked,
 	}
+	return
+}
+
+func createBlockReq(height int64, replicateId uint64) (req *Request) {
+	block := typesc.Block{
+		Header: &typesc.Header{
+			ChainID: uint64(0),
+			Height:  uint64(height),
+		},
+	}
+	blkPacked, _ := json.Marshal(block)
+	req = &Request{
+		// TOTO: proto Marshal
+		// Timestamp: tx.GetTimestamp(),
+		ReplicaId: replicateId,
+		Payload:   blkPacked,
+	}
+	return
+}
+
+func CreateBlockReq(height int64, replicateId uint64) (reqBatch *RequestBatch) {
+	req := createBlockReq(height, replicateId)
+	reqBatch = &RequestBatch{Batch: []*Request{req}}
 	return
 }
 

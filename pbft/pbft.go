@@ -128,9 +128,10 @@ type PeerMap map[uint64]string
 
 var GlobalNodeMap = PeerMap{
 	uint64(0): "127.0.0.1:8080",
-	uint64(1): "127.0.0.1:8081",
-	uint64(2): "127.0.0.1:8082",
-	uint64(3): "127.0.0.1:8083",
+	/*
+		uint64(1): "127.0.0.1:8081",
+		uint64(2): "127.0.0.1:8082",
+		uint64(3): "127.0.0.1:8083",*/
 }
 
 type NodeInfo struct {
