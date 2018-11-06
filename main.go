@@ -19,13 +19,13 @@ func main() {
 	primary := int64(0)
 	index := uint64(0)
 	for {
-		if index == 2 {
+		if index == 10 {
 			break
 		}
 		if uint64(primary) == *nodeId {
-			reqBatch := pbft.CreatePbftReqBatch(primary, 0)
+			reqBatch := pbft.CreatePbftReqBatch(int64(index), 0)
 			req := reqBatch.Batch[0]
-			fmt.Printf("I will send:\n ReplicaId: %v.\n Payload: %v.\n Signature: %v.\n Timestamp: %v.\n", req.ReplicaId, req.Payload, req.Signature, req.Timestamp)
+			fmt.Printf("I will send:\nReplicaId: %v.\nPayload: %v.\nSignature: %v.\nTimestamp: %v.\n", req.ReplicaId, req.Payload, req.Signature, req.Timestamp)
 			tools.SendEvent(nodeInfo.Core, reqBatch)
 			fmt.Printf("+++++++++++++++++++++++++++\n")
 		}

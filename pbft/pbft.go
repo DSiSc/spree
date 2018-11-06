@@ -128,10 +128,9 @@ type PeerMap map[uint64]string
 
 var GlobalNodeMap = PeerMap{
 	uint64(0): "127.0.0.1:8080",
-	/*
-		uint64(1): "127.0.0.1:8081",
-		uint64(2): "127.0.0.1:8082",
-		uint64(3): "127.0.0.1:8083",*/
+	uint64(1): "127.0.0.1:8081",
+	uint64(2): "127.0.0.1:8082",
+	uint64(3): "127.0.0.1:8083",
 }
 
 type NodeInfo struct {
@@ -430,12 +429,11 @@ func LoadConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("../consensus/pbft/")
-	config.AddConfigPath("../../consensus/pbft")
+	config.AddConfigPath("../spree/pbft/")
 	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
 	for _, p := range filepath.SplitList(gopath) {
-		pbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/pbft")
+		pbftpath := filepath.Join(p, "src/github.com/DSiSc/spree/pbft")
 		config.AddConfigPath(pbftpath)
 	}
 

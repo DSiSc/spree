@@ -48,19 +48,19 @@ func handleConnection(tcpListener *net.TCPListener, bft *pbftCore) {
 			fmt.Printf("receive preprepare message: len is %d. \n", len(prePrepare.RequestBatch.Batch))
 			req := prePrepare.RequestBatch.Batch[0]
 			fmt.Printf("receive preprepare message: ReplicaId: %v.\n Payload: %v.\n Signature: %v.\n Timestamp: %v.\n", req.ReplicaId, req.Payload, req.Signature, req.Timestamp)
-			fmt.Printf("receive preprepare message: Begin send preprepare message.\n")
+			fmt.Printf("receive preprepare message: Begin trying to send prepare message to event process.\n")
 			tools.SendEvent(bft, prePrepare)
 		case *Message_Prepare:
 			prepare := payload.(*Message_Prepare).Prepare
 			fmt.Printf("receive prepare message: \n view: %v.\n digest: %v.\n id: %v.\n seqNo: %v.\n",
 				prepare.View, prepare.BatchDigest, prepare.ReplicaId, prepare.SequenceNumber)
-			fmt.Printf("receive prepare message: Begin send prepare message.\n")
+			fmt.Printf("receive prepare message: Begin trying to send commit message to event process.\n")
 			tools.SendEvent(bft, prepare)
 		case *Message_Commit:
 			commit := payload.(*Message_Commit).Commit
 			fmt.Printf("receive commit message: \n view: %v.\n digest: %v.\n id: %v.\n seqNo: %v.\n",
 				commit.View, commit.BatchDigest, commit.ReplicaId, commit.SequenceNumber)
-			fmt.Printf("receive commit message: Begin send commit message.\n")
+			fmt.Printf("receive commit message: Begin trying to confirm the commit message to event process.\n")
 			tools.SendEvent(bft, commit)
 		default:
 			fmt.Print("Unsupport message type.\n")
